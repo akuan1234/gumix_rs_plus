@@ -1,0 +1,11 @@
+background
+water
+building no damage
+building minor damage
+building major damage
+building total destruction
+vehicle
+road clear
+road blocked
+tree
+pool

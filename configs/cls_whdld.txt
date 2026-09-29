@@ -1,0 +1,6 @@
+building
+road
+pavement
+vegetation
+bare soil
+water
