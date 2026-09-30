@@ -10,7 +10,7 @@ model = dict(
     sam2_points_per_side=8,
     # Journal strategy: fixed prompt groups and canonical-to-alias blending.
     # Use --cfg-options model.prompt_type=imagenet to reproduce the conference prompt baseline.
-    prompt_type='stage2_blendalias06_tiny_compound05_pool10',
+    prompt_type='gumix_rs_plus',
     georsclip_checkpoint='checkpoints/RS5M_ViT-H-14.pt',
     dino_checkpoint='checkpoints/dinov3_vitl16_pretrain_sat493m-eadcf0ff.pth',
     sam2_checkpoint='checkpoints/sam2_hiera_large.pt',

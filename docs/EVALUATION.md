@@ -78,7 +78,7 @@ points along each side, so 8 and 32 correspond to 64 and 1024 prompt points.
 | Visual scales | 1.0, 1.5 |
 | Sliding crop / stride | 336 / 112 |
 | Final logit scale | 40 |
-| Text strategy | `stage2_blendalias06_tiny_compound05_pool10` |
+| Text strategy | `gumix_rs_plus` |
 | Batch size | 1 |
 
 Image resizing and class-specific label conventions are in DATASETS.md. The

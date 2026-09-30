@@ -154,8 +154,9 @@ rs_infrastructure_template = _make_templates([
 ])
 
 
-JOURNAL_PROMPT_TYPE = 'stage2_blendalias06_tiny_compound05_pool10'
-STAGE2_PROMPT_STRATEGIES = {
+JOURNAL_PROMPT_TYPE = 'gumix_rs_plus'
+LEGACY_JOURNAL_PROMPT_TYPE = 'stage2_blendalias06_tiny_compound05_pool10'
+PROMPT_STRATEGIES = {
     JOURNAL_PROMPT_TYPE: [
         ('generic', 1.00, openai_imagenet_template),
         ('rs_view', 0.040, rs_view_template),
@@ -167,20 +168,27 @@ STAGE2_PROMPT_STRATEGIES = {
 }
 
 
+def normalize_prompt_type(prompt_type):
+    prompt_type = (prompt_type or 'imagenet').lower()
+    if prompt_type == LEGACY_JOURNAL_PROMPT_TYPE:
+        return JOURNAL_PROMPT_TYPE
+    return prompt_type
+
+
 def get_prompt_strategy(prompt_type):
-    return STAGE2_PROMPT_STRATEGIES.get((prompt_type or 'imagenet').lower())
+    return PROMPT_STRATEGIES.get(normalize_prompt_type(prompt_type))
 
 
 def get_prompt_templates(prompt_type):
-    prompt_type = (prompt_type or 'imagenet').lower()
+    prompt_type = normalize_prompt_type(prompt_type)
     if prompt_type == 'imagenet':
         return openai_imagenet_template
     if prompt_type == 'rs':
         return rs_imagenet_template
     if prompt_type == 'mixed':
         return openai_imagenet_template + rs_imagenet_template
-    if prompt_type in STAGE2_PROMPT_STRATEGIES:
-        return [template for _, _, templates in STAGE2_PROMPT_STRATEGIES[prompt_type]
+    if prompt_type in PROMPT_STRATEGIES:
+        return [template for _, _, templates in PROMPT_STRATEGIES[prompt_type]
                 for template in templates]
     raise ValueError(f'Unknown prompt_type: {prompt_type}. '
                      f'Choose imagenet, rs, mixed, or {JOURNAL_PROMPT_TYPE}.')

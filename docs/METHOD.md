@@ -1,6 +1,8 @@
 # Semantic Prototype Enrichment
 
-The default strategy is `stage2_blendalias06_tiny_compound05_pool10`.
+The default strategy is `gumix_rs_plus`. The previous name,
+`stage2_blendalias06_tiny_compound05_pool10`, remains a compatibility alias
+for the same strategy and coefficients.
 
 | Prompt group | Templates | Weight |
 | --- | ---: | ---: |

@@ -26,7 +26,10 @@ except ImportError:
 from open_clip import create_model, tokenizer
 from huggingface_hub import hf_hub_download
 from myutils import UnNormalize
-from prompts.imagenet_template import openai_imagenet_template, get_prompt_templates, get_prompt_strategy
+from prompts.imagenet_template import (
+    openai_imagenet_template, get_prompt_templates, get_prompt_strategy,
+    JOURNAL_PROMPT_TYPE, normalize_prompt_type,
+)
 
 
 _SAM2_IMPORT_ERROR = None
@@ -790,29 +793,6 @@ class GUMixRSSegmentation(BaseSegmentor):
         self.num_classes = max(self.query_idx) + 1
         self.query_idx = torch.Tensor(self.query_idx).to(torch.int64).to(device)
 
-        thin_keywords = [
-            'road', 'street', 'highway', 'lane', 'path', 'trail',
-            'rail', 'railway', 'track', 'runway', 'bridge',
-
-            'river', 'canal', 'stream', 'waterway',
-            'coast', 'shoreline', 'shore', 'bank', 'harbor',
-
-            'boundary', 'edge', 'border',
-        ]
-
-        thin_query_ids = []
-        for qid, name in enumerate(query_words):
-            lower = name.lower()
-            if any(kw in lower for kw in thin_keywords):
-                thin_query_ids.append(qid)
-
-        if len(thin_query_ids) > 0:
-            self.thin_query_ids = torch.tensor(
-                thin_query_ids, dtype=torch.long, device=device
-            )
-        else:
-            self.thin_query_ids = None
-
         def encode_template_group(qw, templates):
             query = self.tokenizer([temp(qw) for temp in templates]).to(device)
             feature = self.clip.encode_text(query)
@@ -821,49 +801,17 @@ class GUMixRSSegmentation(BaseSegmentor):
             feature /= feature.norm()
             return feature
 
-        prompt_type_lower = (self.prompt_type or '').lower()
-        prompt_alias_enabled = 'alias' in prompt_type_lower
-        prompt_alias_blend_weight = 0.0
-        if prompt_alias_enabled and 'blendalias' in prompt_type_lower:
-            prompt_alias_blend_weight = 0.10
-            for key, weight in (
-                ('blendalias02', 0.02),
-                ('blendalias03', 0.03),
-                ('blendalias04', 0.04),
-                ('blendalias05', 0.05),
-                ('blendalias06', 0.06),
-                ('blendalias07', 0.07),
-                ('blendalias08', 0.08),
-                ('blendalias10', 0.10),
-                ('blendalias15', 0.15),
-            ):
-                if key in prompt_type_lower:
-                    prompt_alias_blend_weight = weight
-                    break
+        prompt_alias_enabled = normalize_prompt_type(self.prompt_type) == JOURNAL_PROMPT_TYPE
+        prompt_alias_blend_weight = 0.06
 
         def normalize_prompt_alias_name(qw):
             return ' '.join(qw.replace('_', ' ').strip().lower().split())
 
-        prompt_alias_class_blend_weights = {}
-        if prompt_alias_blend_weight > 0:
-            if 'compound05' in prompt_type_lower:
-                prompt_alias_class_blend_weights.update({
-                    'road flooded': 0.05,
-                    'building non-flooded': 0.05,
-                })
-            if 'compound04' in prompt_type_lower:
-                prompt_alias_class_blend_weights.update({
-                    'road flooded': 0.04,
-                    'building non-flooded': 0.04,
-                })
-            if 'road05' in prompt_type_lower:
-                prompt_alias_class_blend_weights['road flooded'] = 0.05
-            if 'road04' in prompt_type_lower:
-                prompt_alias_class_blend_weights['road flooded'] = 0.04
-            if 'pool07' in prompt_type_lower:
-                prompt_alias_class_blend_weights['pool'] = 0.07
-            if 'pool10' in prompt_type_lower:
-                prompt_alias_class_blend_weights['pool'] = 0.10
+        prompt_alias_class_blend_weights = {
+            'road flooded': 0.05,
+            'building non-flooded': 0.05,
+            'pool': 0.10,
+        }
 
         def get_prompt_aliases(qw):
             if not prompt_alias_enabled:
@@ -907,29 +855,22 @@ class GUMixRSSegmentation(BaseSegmentor):
                 return base_feature
 
             alias_features = [encode_template_group(alias, templates) for alias in aliases[1:]]
-            if prompt_alias_blend_weight > 0:
-                alias_feature = torch.stack(alias_features, dim=0).mean(dim=0)
-                blend_weight = prompt_alias_class_blend_weights.get(
-                    normalize_prompt_alias_name(aliases[0]), prompt_alias_blend_weight
-                )
-                feature = base_feature * (1.0 - blend_weight) + alias_feature * blend_weight
-            else:
-                feature = torch.stack([base_feature] + alias_features, dim=0).mean(dim=0)
+            alias_feature = torch.stack(alias_features, dim=0).mean(dim=0)
+            blend_weight = prompt_alias_class_blend_weights.get(
+                normalize_prompt_alias_name(aliases[0]), prompt_alias_blend_weight
+            )
+            feature = base_feature * (1.0 - blend_weight) + alias_feature * blend_weight
             feature /= feature.norm()
             return feature
 
         prompt_strategy = get_prompt_strategy(self.prompt_type)
         if prompt_alias_enabled:
-            if prompt_alias_blend_weight > 0:
-                print(f'[Prompt] alias=blend, max_aliases=4, alias_weight={prompt_alias_blend_weight}')
-                if prompt_alias_class_blend_weights:
-                    class_weight_summary = ', '.join(
-                        f'{name}:{weight}'
-                        for name, weight in sorted(prompt_alias_class_blend_weights.items())
-                    )
-                    print(f'[Prompt] alias_class_weights={class_weight_summary}')
-            else:
-                print('[Prompt] alias=mean, max_aliases=4')
+            print(f'[Prompt] alias=blend, max_aliases=4, alias_weight={prompt_alias_blend_weight}')
+            class_weight_summary = ', '.join(
+                f'{name}:{weight}'
+                for name, weight in sorted(prompt_alias_class_blend_weights.items())
+            )
+            print(f'[Prompt] alias_class_weights={class_weight_summary}')
         if prompt_strategy is None:
             print(f"[Prompt] type={self.prompt_type}, mode=flat, templates={len(get_prompt_templates(self.prompt_type))}")
         else:

@@ -26,7 +26,7 @@ specify dataset and checkpoint locations, and `--out` to save label-ID PNGs.
 Run one GPU per process with `batch_size=1`.
 
 The default configuration uses
-`prompt_type='stage2_blendalias06_tiny_compound05_pool10'`,
+`prompt_type='gumix_rs_plus'`,
 `sam2_points_per_side=8` and `multi_scales=[1.0, 1.5]`.
 See [prompt construction](docs/METHOD.md) for details.
 
